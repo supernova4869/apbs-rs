@@ -1,0 +1,23 @@
+[workspace]
+members = [
+    "apbs-generic",
+    "apbs-mg",
+    "apbs-pmgc",
+    "apbs-core",
+]
+resolver = "2"
+
+[workspace.package]
+version = "3.4.1"
+edition = "2021"
+license = "BSD-2-Clause"
+repository = "https://github.com/Electrostatics/apbs"
+description = "Adaptive Poisson-Boltzmann Solver - Rust port"
+
+[workspace.dependencies]
+thiserror = "1"
+memmap2 = "0.9"
+flate2 = "1.0"
+quick-xml = "0.31"
+clap = { version = "4", features = ["derive"] }
+rayon = "1.10"

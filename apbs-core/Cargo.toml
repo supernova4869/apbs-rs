@@ -1,0 +1,20 @@
+[package]
+name = "apbs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Adaptive Poisson-Boltzmann Solver"
+
+[[bin]]
+name = "apbs"
+path = "src/main.rs"
+
+[dependencies]
+apbs-generic = { path = "../apbs-generic" }
+apbs-mg = { path = "../apbs-mg" }
+apbs-pmgc = { path = "../apbs-pmgc" }
+thiserror.workspace = true
+flate2.workspace = true
+
+[features]
+default = []

@@ -1,0 +1,12 @@
+[package]
+name = "apbs-generic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "APBS core data structures and utilities"
+
+[dependencies]
+thiserror.workspace = true
+quick-xml.workspace = true
+
+[dev-dependencies]
