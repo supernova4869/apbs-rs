@@ -23,9 +23,9 @@ with (ROOT / "summary.csv").open() as fh:
 threads = sorted(values)
 binaries = ["sys", "release", "debug"]
 labels = {
-    "sys": "系统 APBS",
-    "release": "Rust release",
-    "debug": "Rust debug",
+    "sys": "APBS 3.4.1",
+    "release": "APBS-rs release",
+    "debug": "APBS-rs debug",
 }
 colors = {
     "sys": "#4C72B0",
@@ -33,7 +33,7 @@ colors = {
     "debug": "#C44E52",
 }
 
-fig, ax = plt.subplots(figsize=(7.5, 5.2))
+fig, ax = plt.subplots(figsize=(6.4, 4.8))
 bar_width = 0.26
 
 positions = range(len(threads))
@@ -43,16 +43,15 @@ for offset, name in enumerate(binaries):
     ax.bar(xs, ys, width=bar_width, label=labels[name], color=colors[name])
 
 ax.set_xticks(list(positions))
-ax.set_xticklabels([str(t) for t in threads])
-ax.set_xlabel("线程数")
-ax.set_ylabel("墙钟时间（s，取 3 次最短）")
-ax.set_title("三种实现的并发性能对比（对数坐标）")
-ax.set_yscale("log")
-ax.set_ylim(bottom=1.0, top=35)
+ax.set_xticklabels([str(t) for t in threads], fontsize=12)
+ax.set_xlabel("#threads", fontsize=14)
+ax.set_ylabel("Avg. Wall time (s)", fontsize=14)
+# ax.set_yscale("log")
+# ax.set_ylim(bottom=1.0, top=35)
 ax.grid(axis="y", linestyle=":", alpha=0.5)
 ax.legend(loc="upper right")
 
-fig.suptitle("test_apbs_par：APBS 并发性能柱状图", fontsize=14)
+plt.title("APBS parallel performance", fontsize=14)
 fig.tight_layout(rect=(0, 0, 1, 0.95))
 out = ROOT / "summary_bar.png"
 fig.savefig(out, dpi=150)
