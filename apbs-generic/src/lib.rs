@@ -317,6 +317,7 @@ pub mod vacc {
     use crate::vhal::VSMALL;
     use crate::apolparm::APOLparm;
     use crate::error::ApbsError;
+    use rayon::prelude::*;
 
     /// Per-atom surface point set
     #[derive(Debug, Clone)]
@@ -443,12 +444,22 @@ pub mod vacc {
         }
 
         fn ivdw_acc_exclus(&self, center: [f64; 3], radius: f64, exclude_atom: i32) -> bool {
-            if let Some(cell) = self.clist.get_cell(center) {
+            Self::ivdw_acc_exclus_from(&self.clist, &self.alist, center, radius, exclude_atom)
+        }
+
+        fn ivdw_acc_exclus_from(
+            clist: &std::sync::Arc<Vclist>,
+            alist: &std::sync::Arc<Valist>,
+            center: [f64; 3],
+            radius: f64,
+            exclude_atom: i32,
+        ) -> bool {
+            if let Some(cell) = clist.get_cell(center) {
                 for &atom_idx in &cell.atoms {
                     if atom_idx as i32 == exclude_atom {
                         continue;
                     }
-                    let atom = self.alist.get_atom(atom_idx);
+                    let atom = alist.get_atom(atom_idx);
                     let dx = center[0] - atom.position[0];
                     let dy = center[1] - atom.position[1];
                     let dz = center[2] - atom.position[2];
@@ -481,15 +492,38 @@ pub mod vacc {
 
         fn build_surfaces(&mut self, prad: f64) {
             let num_atoms = self.alist.number_atoms();
-            for i in 0..num_atoms {
-                if self.surf[i].is_none() {
-                    let atom = self.alist.get_atom(i);
-                    self.surf[i] = Some(self.atom_surf(atom, &self.ref_sphere.clone(), prad));
-                }
+            if num_atoms == 0 {
+                return;
+            }
+
+            let alist = std::sync::Arc::clone(&self.alist);
+            let clist = std::sync::Arc::clone(&self.clist);
+            let ref_sphere = self.ref_sphere.clone();
+            // Each per-atom surface is computed from the atom list and the
+            // neighbor cell list only, so atoms can be processed in parallel.
+            let surfaces: Vec<VaccSurf> = (0..num_atoms)
+                .into_par_iter()
+                .map(|i| {
+                    let atom = alist.get_atom(i);
+                    Self::atom_surf_from(&alist, &clist, atom, &ref_sphere, prad)
+                })
+                .collect();
+            for (i, surface) in surfaces.into_iter().enumerate() {
+                self.surf[i] = Some(surface);
             }
         }
 
         fn atom_surf(&self, atom: &Vatom, ref_sphere: &VaccSurf, prad: f64) -> VaccSurf {
+            Self::atom_surf_from(&self.alist, &self.clist, atom, ref_sphere, prad)
+        }
+
+        fn atom_surf_from(
+            alist: &std::sync::Arc<Valist>,
+            clist: &std::sync::Arc<Vclist>,
+            atom: &Vatom,
+            ref_sphere: &VaccSurf,
+            prad: f64,
+        ) -> VaccSurf {
             let arad = atom.radius;
             let rad = arad + prad;
             let mut count = 0;
@@ -501,7 +535,7 @@ pub mod vacc {
                 let y = atom.position[1] + ref_sphere.ypts[ipoint] * rad;
                 let z = atom.position[2] + ref_sphere.zpts[ipoint] * rad;
 
-                if self.ivdw_acc_exclus([x, y, z], prad, atom.atom_id()) {
+                if Self::ivdw_acc_exclus_from(clist, alist, [x, y, z], prad, atom.atom_id()) {
                     result.xpts[count] = x;
                     result.ypts[count] = y;
                     result.zpts[count] = z;
@@ -797,10 +831,10 @@ pub mod vacc {
         /// over a local grid patch around the atom.
         pub fn wca_energy_atom(&self, apolparm: &APOLparm, iatom: usize) -> Result<f64, ApbsError> {
             let pad = 14.0f64;
-            let vol_density = 2.0f64;
+            // let vol_density = 2.0f64;
 
-            let lower_corner = self.clist.lower_corner;
-            let upper_corner = self.clist.upper_corner;
+            // let lower_corner = self.clist.lower_corner;
+            // let upper_corner = self.clist.upper_corner;
 
             let atom = self.alist.get_atom(iatom);
             let pos = atom.position;
@@ -829,7 +863,7 @@ pub mod vacc {
             // Compute grid spacings using extended domain
             let mut spacs = [0.5f64; 3];
             for i in 0..3 {
-                let len = (upper_corner[i] + pad) - (lower_corner[i] - pad);
+                // let len = (upper_corner[i] + pad) - (lower_corner[i] - pad);
                 if apolparm.setgrid {
                     if apolparm.grid[i] > spacs[i] {
                         // Warning: grid value larger than recommended
@@ -1015,7 +1049,7 @@ pub mod vacc {
         /// Port of Vacc_wcaForceAtom from vacc.c line 1754.
         pub fn wca_force_atom(&self, apolparm: &APOLparm, iatom: usize, force: &mut [f64; 3]) -> Result<(), ApbsError> {
             let pad = 14.0f64;
-            let vol_density = 2.0f64;
+            // let vol_density = 2.0f64;
 
             let lower_corner = self.clist.lower_corner;
             let upper_corner = self.clist.upper_corner;

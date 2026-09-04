@@ -1,0 +1,16 @@
+binary,threads,min_elapsed_s,mean_elapsed_s
+debug,1,22.940,22.967
+debug,16,8.010,8.037
+debug,32,8.020,8.037
+debug,4,10.720,10.760
+debug,8,8.610,8.640
+release,1,4.520,4.520
+release,16,1.650,1.683
+release,32,1.700,1.703
+release,4,2.310,2.327
+release,8,1.920,1.940
+sys,1,3.730,3.743
+sys,16,1.630,1.647
+sys,32,1.910,2.813
+sys,4,2.080,2.087
+sys,8,1.860,1.867

@@ -424,7 +424,7 @@ impl Vgrid {
     pub fn read_dxbin(&mut self, filename: &str) -> ApbsResult<()> {
         use std::io::Read;
 
-        let mut file = File::open(filename)
+        let file = File::open(filename)
             .map_err(|e| ApbsError::Io(format!("{}: {}", filename, e)))?;
 
         // Read text header
@@ -513,7 +513,7 @@ impl Vgrid {
         // Re-open for binary reading from current position
         // We need to track how many bytes the text header consumed
         // Actually, we need to reopen since BufReader consumed the buffer
-        let mut file = File::open(filename)
+        let file = File::open(filename)
             .map_err(|e| ApbsError::Io(format!("{}: {}", filename, e)))?;
 
         // We need to skip past the text header to get to the binary data
@@ -690,7 +690,7 @@ impl Vgrid {
     /// Port of Vgrid_readGZ from vgrid.c line 462.
     pub fn read_gz(&mut self, filename: &str) -> ApbsResult<()> {
         use flate2::read::GzDecoder;
-        use std::io::{BufRead, Read};
+        use std::io::Read;
 
         let file = File::open(filename)
             .map_err(|e| ApbsError::Io(format!("{}: {}", filename, e)))?;

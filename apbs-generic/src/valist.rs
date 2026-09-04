@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_valist_pqr() {
-        let mut tmpfile = std::env::temp_dir().join("test_apbs.pqr");
+        let tmpfile = std::env::temp_dir().join("test_apbs.pqr");
         let mut f = File::create(&tmpfile).unwrap();
         writeln!(f, "ATOM      1  CA  ALA     1       1.000   2.000   3.000 -0.1800  1.9000").unwrap();
         writeln!(f, "ATOM      2  CB  ALA     1       2.000   3.000   4.000  0.0300  1.9000").unwrap();

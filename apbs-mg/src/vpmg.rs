@@ -516,45 +516,42 @@ impl Vpmg {
             // For each SAS point, reset the dielectric back to solvent
             if srad > VSMALL {
                 let _ = self.pbe.acc.lock().unwrap().sasa(srad);
-                for iatom in 0..num_atoms {
-                    let has_sas = {
-                        let mut acc = self.pbe.acc.lock().unwrap();
-                        let opt = acc.atom_sas_points(iatom, srad);
-                        opt.is_some()
-                    };
-                    if has_sas {
-                        let points: Vec<[f64; 3]> = {
-                            let acc = self.pbe.acc.lock().unwrap();
-                            let surf = acc.surf[iatom].as_ref().unwrap();
-                            let mut pts = Vec::with_capacity(surf.npts);
+                let mut sas_points: Vec<[f64; 3]> = Vec::new();
+                {
+                    let acc = self.pbe.acc.lock().unwrap();
+                    for iatom in 0..num_atoms {
+                        if let Some(surf) = acc.surf[iatom].as_ref() {
                             for ipt in 0..surf.npts {
                                 if surf.bpts[ipt] {
-                                    pts.push([surf.xpts[ipt], surf.ypts[ipt], surf.zpts[ipt]]);
+                                    sas_points.push([
+                                        surf.xpts[ipt],
+                                        surf.ypts[ipt],
+                                        surf.zpts[ipt],
+                                    ]);
                                 }
                             }
-                            pts
-                        };
-                        for position in points {
-                            Self::mark_sphere(
-                                srad, position,
-                                nx, ny, nz, hx, hy, hzed,
-                                self.pmgp.xmin + 0.5 * hx, self.pmgp.ymin, self.pmgp.zmin,
-                                &mut self.epsx, eps_solvent,
-                            );
-                            Self::mark_sphere(
-                                srad, position,
-                                nx, ny, nz, hx, hy, hzed,
-                                self.pmgp.xmin, self.pmgp.ymin + 0.5 * hy, self.pmgp.zmin,
-                                &mut self.epsy, eps_solvent,
-                            );
-                            Self::mark_sphere(
-                                srad, position,
-                                nx, ny, nz, hx, hy, hzed,
-                                self.pmgp.xmin, self.pmgp.ymin, self.pmgp.zmin + 0.5 * hzed,
-                                &mut self.epsz, eps_solvent,
-                            );
                         }
                     }
+                }
+                for position in sas_points {
+                    Self::mark_sphere(
+                        srad, position,
+                        nx, ny, nz, hx, hy, hzed,
+                        self.pmgp.xmin + 0.5 * hx, self.pmgp.ymin, self.pmgp.zmin,
+                        &mut self.epsx, eps_solvent,
+                    );
+                    Self::mark_sphere(
+                        srad, position,
+                        nx, ny, nz, hx, hy, hzed,
+                        self.pmgp.xmin, self.pmgp.ymin + 0.5 * hy, self.pmgp.zmin,
+                        &mut self.epsy, eps_solvent,
+                    );
+                    Self::mark_sphere(
+                        srad, position,
+                        nx, ny, nz, hx, hy, hzed,
+                        self.pmgp.xmin, self.pmgp.ymin, self.pmgp.zmin + 0.5 * hzed,
+                        &mut self.epsz, eps_solvent,
+                    );
                 }
             }
 
@@ -835,11 +832,10 @@ impl Vpmg {
         let zmax = self.pmgp.zmax;
         let zmagic = self.pbe.zmagic;
         let scale = zmagic / (hx * hy * hzed);
-        let nf = nx * ny * nz;
 
         let num_atoms = self.pbe.alist.number_atoms();
-        let partials: Vec<Vec<f64>> = (0..num_atoms).into_par_iter().map(|iatom| {
-            let mut local = vec![0.0; nf];
+        let partials: Vec<Vec<(usize, f64)>> = (0..num_atoms).into_par_iter().map(|iatom| {
+            let mut local = Vec::with_capacity(8);
             let atom = self.pbe.alist.get_atom(iatom);
             let apos = atom.position;
             let charge = atom.charge;
@@ -875,27 +871,26 @@ impl Vpmg {
             let dy = jfloat - jlo as f64;
             let dz = kfloat - klo as f64;
 
-            let add_charge = |arr: &mut [f64], ii: i32, jj: i32, kk: i32, w: f64| {
+            let push = |local: &mut Vec<(usize, f64)>, ii: i32, jj: i32, kk: i32, w: f64| {
                 if ii >= 0 && (ii as usize) < nx && jj >= 0 && (jj as usize) < ny && kk >= 0 && (kk as usize) < nz {
-                    arr[ijk(ii as usize, jj as usize, kk as usize, nx, ny)] += w * q;
+                    local.push((ijk(ii as usize, jj as usize, kk as usize, nx, ny), w * q));
                 }
             };
 
-            let mut local = local;
-            add_charge(&mut local, ihi, jhi, khi, dx * dy * dz);
-            add_charge(&mut local, ihi, jlo, khi, dx * (1.0 - dy) * dz);
-            add_charge(&mut local, ihi, jhi, klo, dx * dy * (1.0 - dz));
-            add_charge(&mut local, ihi, jlo, klo, dx * (1.0 - dy) * (1.0 - dz));
-            add_charge(&mut local, ilo, jhi, khi, (1.0 - dx) * dy * dz);
-            add_charge(&mut local, ilo, jlo, khi, (1.0 - dx) * (1.0 - dy) * dz);
-            add_charge(&mut local, ilo, jhi, klo, (1.0 - dx) * dy * (1.0 - dz));
-            add_charge(&mut local, ilo, jlo, klo, (1.0 - dx) * (1.0 - dy) * (1.0 - dz));
+            push(&mut local, ihi, jhi, khi, dx * dy * dz);
+            push(&mut local, ihi, jlo, khi, dx * (1.0 - dy) * dz);
+            push(&mut local, ihi, jhi, klo, dx * dy * (1.0 - dz));
+            push(&mut local, ihi, jlo, klo, dx * (1.0 - dy) * (1.0 - dz));
+            push(&mut local, ilo, jhi, khi, (1.0 - dx) * dy * dz);
+            push(&mut local, ilo, jlo, khi, (1.0 - dx) * (1.0 - dy) * dz);
+            push(&mut local, ilo, jhi, klo, (1.0 - dx) * dy * (1.0 - dz));
+            push(&mut local, ilo, jlo, klo, (1.0 - dx) * (1.0 - dy) * (1.0 - dz));
             local
         }).collect();
 
-        for partial in partials {
-            for (dst, src) in self.charge.iter_mut().zip(partial.iter()) {
-                *dst += *src;
+        for partial in &partials {
+            for &(idx, value) in partial {
+                self.charge[idx] += value;
             }
         }
 
@@ -918,11 +913,10 @@ impl Vpmg {
         let zmax = self.pmgp.zmax;
         let zmagic = self.pbe.zmagic;
         let scale = zmagic / (hx * hy * hzed);
-        let nf = nx * ny * nz;
 
         let num_atoms = self.pbe.alist.number_atoms();
-        let partials: Vec<Vec<f64>> = (0..num_atoms).into_par_iter().map(|iatom| {
-            let mut local = vec![0.0; nf];
+        let partials: Vec<Vec<(usize, f64)>> = (0..num_atoms).into_par_iter().map(|iatom| {
+            let mut local = Vec::with_capacity(27);
             let atom = self.pbe.alist.get_atom(iatom);
             let apos = atom.position;
             let charge = atom.charge;
@@ -966,7 +960,7 @@ impl Vpmg {
                         let bk = bspline2(fk);
                         let w = bi * bj * bk;
                         if w.abs() > VSMALL {
-                            local[ijk(ii as usize, jj as usize, kk as usize, nx, ny)] += w * q;
+                            local.push((ijk(ii as usize, jj as usize, kk as usize, nx, ny), w * q));
                         }
                     }
                 }
@@ -974,9 +968,9 @@ impl Vpmg {
             local
         }).collect();
 
-        for partial in partials {
-            for (dst, src) in self.charge.iter_mut().zip(partial.iter()) {
-                *dst += *src;
+        for partial in &partials {
+            for &(idx, value) in partial {
+                self.charge[idx] += value;
             }
         }
 
@@ -1001,11 +995,10 @@ impl Vpmg {
         let zmax = self.pmgp.zmax;
         let zmagic = self.pbe.zmagic;
         let scale = zmagic / (hx * hy * hzed);
-        let nf = nx * ny * nz;
 
         let num_atoms = self.pbe.alist.number_atoms();
-        let partials: Vec<Vec<f64>> = (0..num_atoms).into_par_iter().map(|iatom| {
-            let mut local = vec![0.0; nf];
+        let partials: Vec<Vec<(usize, f64)>> = (0..num_atoms).into_par_iter().map(|iatom| {
+            let mut local = Vec::with_capacity(125);
             let atom = self.pbe.alist.get_atom(iatom);
             let apos = atom.position;
             let charge = atom.charge;
@@ -1057,7 +1050,7 @@ impl Vpmg {
                         let wk = bspline4(vfchi4(kk as f64, kfloat));
                         let w = wi * wj * wk;
                         if w.abs() > VSMALL {
-                            local[ijk(ii as usize, jj as usize, kk as usize, nx, ny)] += w * q;
+                            local.push((ijk(ii as usize, jj as usize, kk as usize, nx, ny), w * q));
                         }
                     }
                 }
@@ -1065,9 +1058,9 @@ impl Vpmg {
             local
         }).collect();
 
-        for partial in partials {
-            for (dst, src) in self.charge.iter_mut().zip(partial.iter()) {
-                *dst += *src;
+        for partial in &partials {
+            for &(idx, value) in partial {
+                self.charge[idx] += value;
             }
         }
 
@@ -1563,7 +1556,8 @@ impl Vpmg {
             0.5 * qf
         }
     }
-
+    
+    #[allow(unused_assignments)]
     /// Fixed charge energy (q * phi)
     pub fn qf_energy(&self, ext_flag: i32) -> f64 {
         let nx = self.pmgp.nx as usize;
@@ -1639,6 +1633,7 @@ impl Vpmg {
     }
 
     /// Mobile ion energy
+    #[allow(unused_assignments)]
     pub fn qm_energy(&self, ext_flag: i32) -> f64 {
         let nx = self.pmgp.nx as usize;
         let ny = self.pmgp.ny as usize;
@@ -2105,41 +2100,41 @@ impl Vpmg {
 
     /// Interpolate potential at (x,y,z) from this grid's solution using trilinear interpolation.
     /// Used by compute_ext_energy to evaluate the coarse grid potential at atom positions.
-    fn interpolate_u(&self, x: f64, y: f64, z: f64) -> f64 {
-        let nx = self.pmgp.nx as usize;
-        let ny = self.pmgp.ny as usize;
-        let nz = self.pmgp.nz as usize;
-        let hx = self.pmgp.hx;
-        let hy = self.pmgp.hy;
-        let hz = self.pmgp.hzed;
-        let xmin = self.pmgp.xmin;
-        let ymin = self.pmgp.ymin;
-        let zmin = self.pmgp.zmin;
+    // fn interpolate_u(&self, x: f64, y: f64, z: f64) -> f64 {
+    //     let nx = self.pmgp.nx as usize;
+    //     let ny = self.pmgp.ny as usize;
+    //     let nz = self.pmgp.nz as usize;
+    //     let hx = self.pmgp.hx;
+    //     let hy = self.pmgp.hy;
+    //     let hz = self.pmgp.hzed;
+    //     let xmin = self.pmgp.xmin;
+    //     let ymin = self.pmgp.ymin;
+    //     let zmin = self.pmgp.zmin;
 
-        let ifloat = (x - xmin) / hx;
-        let jfloat = (y - ymin) / hy;
-        let kfloat = (z - zmin) / hz;
+    //     let ifloat = (x - xmin) / hx;
+    //     let jfloat = (y - ymin) / hy;
+    //     let kfloat = (z - zmin) / hz;
 
-        let ilo = (ifloat.floor() as usize).min(nx - 1);
-        let ihi = (ifloat.ceil() as usize).min(nx - 1);
-        let jlo = (jfloat.floor() as usize).min(ny - 1);
-        let jhi = (jfloat.ceil() as usize).min(ny - 1);
-        let klo = (kfloat.floor() as usize).min(nz - 1);
-        let khi = (kfloat.ceil() as usize).min(nz - 1);
+    //     let ilo = (ifloat.floor() as usize).min(nx - 1);
+    //     let ihi = (ifloat.ceil() as usize).min(nx - 1);
+    //     let jlo = (jfloat.floor() as usize).min(ny - 1);
+    //     let jhi = (jfloat.ceil() as usize).min(ny - 1);
+    //     let klo = (kfloat.floor() as usize).min(nz - 1);
+    //     let khi = (kfloat.ceil() as usize).min(nz - 1);
 
-        let dx = ifloat - ilo as f64;
-        let dy = jfloat - jlo as f64;
-        let dz = kfloat - klo as f64;
+    //     let dx = ifloat - ilo as f64;
+    //     let dy = jfloat - jlo as f64;
+    //     let dz = kfloat - klo as f64;
 
-        (1.0-dx)*(1.0-dy)*(1.0-dz)*self.u[ijk(ilo, jlo, klo, nx, ny)]
-            + dx*(1.0-dy)*(1.0-dz)*self.u[ijk(ihi, jlo, klo, nx, ny)]
-            + (1.0-dx)*dy*(1.0-dz)*self.u[ijk(ilo, jhi, klo, nx, ny)]
-            + dx*dy*(1.0-dz)*self.u[ijk(ihi, jhi, klo, nx, ny)]
-            + (1.0-dx)*(1.0-dy)*dz*self.u[ijk(ilo, jlo, khi, nx, ny)]
-            + dx*(1.0-dy)*dz*self.u[ijk(ihi, jlo, khi, nx, ny)]
-            + (1.0-dx)*dy*dz*self.u[ijk(ilo, jhi, khi, nx, ny)]
-            + dx*dy*dz*self.u[ijk(ihi, jhi, khi, nx, ny)]
-    }
+    //     (1.0-dx)*(1.0-dy)*(1.0-dz)*self.u[ijk(ilo, jlo, klo, nx, ny)]
+    //         + dx*(1.0-dy)*(1.0-dz)*self.u[ijk(ihi, jlo, klo, nx, ny)]
+    //         + (1.0-dx)*dy*(1.0-dz)*self.u[ijk(ilo, jhi, klo, nx, ny)]
+    //         + dx*dy*(1.0-dz)*self.u[ijk(ihi, jhi, klo, nx, ny)]
+    //         + (1.0-dx)*(1.0-dy)*dz*self.u[ijk(ilo, jlo, khi, nx, ny)]
+    //         + dx*(1.0-dy)*dz*self.u[ijk(ihi, jlo, khi, nx, ny)]
+    //         + (1.0-dx)*dy*dz*self.u[ijk(ilo, jhi, khi, nx, ny)]
+    //         + dx*dy*dz*self.u[ijk(ihi, jhi, khi, nx, ny)]
+    // }
 
     /// Compute external energy contributions from region outside focusing domain.
     /// Port of extEnergy from vpmg.c
@@ -2594,21 +2589,21 @@ fn d2bspline4(x: f64) -> f64 {
 
 /// 3rd derivative of 4th-order B-spline.
 /// Port of d3bspline4 from vpmg.c line 6824
-fn d3bspline4(x: f64) -> f64 {
-    if x > 0.0 && x <= 1.0 {
-        x
-    } else if x > 1.0 && x <= 2.0 {
-        5.0 - 4.0 * x
-    } else if x > 2.0 && x <= 3.0 {
-        -15.0 + 6.0 * x
-    } else if x > 3.0 && x <= 4.0 {
-        15.0 - 4.0 * x
-    } else if x > 4.0 && x <= 5.0 {
-        x - 5.0
-    } else {
-        0.0
-    }
-}
+// fn d3bspline4(x: f64) -> f64 {
+//     if x > 0.0 && x <= 1.0 {
+//         x
+//     } else if x > 1.0 && x <= 2.0 {
+//         5.0 - 4.0 * x
+//     } else if x > 2.0 && x <= 3.0 {
+//         -15.0 + 6.0 * x
+//     } else if x > 3.0 && x <= 4.0 {
+//         15.0 - 4.0 * x
+//     } else if x > 4.0 && x <= 5.0 {
+//         x - 5.0
+//     } else {
+//         0.0
+//     }
+// }
 
 /// VFCHI4 helper for 4th-order B-spline.
 /// Port of VFCHI4 from vpmg.c line 6727
@@ -2621,8 +2616,8 @@ impl Vpmg {
     /// Port of Vpmg_memChk from vpmg.c line 79
     pub fn mem_chk(&self) -> usize {
         // In Rust we don't track Vmem bytes; return approximate size
-        let nf = self.pmgp.nf as usize;
-        let narr = self.pmgp.narr as usize;
+        // let nf = self.pmgp.nf as usize;
+        // let narr = self.pmgp.narr as usize;
         // Approximate: main arrays (each nf or narr f64s)
         let arrays = (self.a1cf.len() + self.a2cf.len() + self.a3cf.len()
             + self.ccf.len() + self.fcf.len() + self.tcf.len()
@@ -3055,7 +3050,7 @@ impl Vpmg {
         let srad = self.pbe.solvent_radius;
         let epsp = self.pbe.solute_diel;
         let epsw = self.pbe.solvent_diel;
-        let kT = self.pbe.temperature * 1e-3 * apbs_generic::vunit::NA * apbs_generic::vunit::KB_ERG;
+        // let kT = self.pbe.temperature * 1e-3 * apbs_generic::vunit::NA * apbs_generic::vunit::KB_ERG;
         let izmagic = 1.0 / self.pbe.zmagic;
 
         let nx = self.pmgp.nx as usize;
@@ -3086,7 +3081,7 @@ impl Vpmg {
         }
 
         let position = [apos[0] - xmin, apos[1] - ymin, apos[2] - zmin];
-        let rtot2 = rtot * rtot;
+        // let rtot2 = rtot * rtot;
 
         let imin = ((position[0] - rtot) / hx).floor() as i32;
         if imin < 1 { return Ok(db_force); }
@@ -3192,7 +3187,7 @@ impl Vpmg {
 
     /// SMPBE mobile ion energy.
     /// Port of Vpmg_qmEnergySMPBE from vpmg.c line 1490
-    pub fn qm_energy_smpbe(&self, ext_flag: i32) -> f64 {
+    pub fn qm_energy_smpbe(&self, _ext_flag: i32) -> f64 {
         let nx = self.pmgp.nx as usize;
         let ny = self.pmgp.ny as usize;
         let nz = self.pmgp.nz as usize;

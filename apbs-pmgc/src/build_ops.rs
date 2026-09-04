@@ -32,96 +32,96 @@ fn build_trilinear_pc_ff(nxf: usize, nyf: usize, nzf: usize) -> Vec<f64> {
     pc_ff
 }
 
-fn restrict_3d(
-    nxf: usize,
-    nyf: usize,
-    nzf: usize,
-    nxc: usize,
-    nyc: usize,
-    nzc: usize,
-    fine: &[f64],
-) -> Vec<f64> {
-    let nc = nxc * nyc * nzc;
-    let mut coarse = vec![0.0f64; nc];
-    let nxnyc = nxc * nyc;
-    for kc in 0..nzc {
-        for jc in 0..nyc {
-            for ic in 0..nxc {
-                let ipc = ic + jc * nxc + kc * nxnyc;
-                let if_ = (2 * ic).min(nxf - 1);
-                let jf = (2 * jc).min(nyf - 1);
-                let kf = (2 * kc).min(nzf - 1);
-                if if_ == 0 || if_ + 1 >= nxf || jf == 0 || jf + 1 >= nyf || kf == 0 || kf + 1 >= nzf {
-                    coarse[ipc] = fine[if_ + jf * nxf + kf * nxf * nyf];
-                    continue;
-                }
-                let mut sum = 0.0;
-                for dk in -1isize..=1 {
-                    for dj in -1isize..=1 {
-                        for di in -1isize..=1 {
-                            let fi = (if_ as isize + di) as usize;
-                            let fj = (jf as isize + dj) as usize;
-                            let fk = (kf as isize + dk) as usize;
-                            let neighbors =
-                                di.unsigned_abs() + dj.unsigned_abs() + dk.unsigned_abs();
-                            let w = match neighbors {
-                                0 => 8.0,
-                                1 => 4.0,
-                                2 => 2.0,
-                                _ => 1.0,
-                            };
-                            sum += w * fine[fi + fj * nxf + fk * nxf * nyf];
-                        }
-                    }
-                }
-                coarse[ipc] = sum / 64.0;
-            }
-        }
-    }
-    coarse
-}
+// fn restrict_3d(
+//     nxf: usize,
+//     nyf: usize,
+//     nzf: usize,
+//     nxc: usize,
+//     nyc: usize,
+//     nzc: usize,
+//     fine: &[f64],
+// ) -> Vec<f64> {
+//     let nc = nxc * nyc * nzc;
+//     let mut coarse = vec![0.0f64; nc];
+//     let nxnyc = nxc * nyc;
+//     for kc in 0..nzc {
+//         for jc in 0..nyc {
+//             for ic in 0..nxc {
+//                 let ipc = ic + jc * nxc + kc * nxnyc;
+//                 let if_ = (2 * ic).min(nxf - 1);
+//                 let jf = (2 * jc).min(nyf - 1);
+//                 let kf = (2 * kc).min(nzf - 1);
+//                 if if_ == 0 || if_ + 1 >= nxf || jf == 0 || jf + 1 >= nyf || kf == 0 || kf + 1 >= nzf {
+//                     coarse[ipc] = fine[if_ + jf * nxf + kf * nxf * nyf];
+//                     continue;
+//                 }
+//                 let mut sum = 0.0;
+//                 for dk in -1isize..=1 {
+//                     for dj in -1isize..=1 {
+//                         for di in -1isize..=1 {
+//                             let fi = (if_ as isize + di) as usize;
+//                             let fj = (jf as isize + dj) as usize;
+//                             let fk = (kf as isize + dk) as usize;
+//                             let neighbors =
+//                                 di.unsigned_abs() + dj.unsigned_abs() + dk.unsigned_abs();
+//                             let w = match neighbors {
+//                                 0 => 8.0,
+//                                 1 => 4.0,
+//                                 2 => 2.0,
+//                                 _ => 1.0,
+//                             };
+//                             sum += w * fine[fi + fj * nxf + fk * nxf * nyf];
+//                         }
+//                     }
+//                 }
+//                 coarse[ipc] = sum / 64.0;
+//             }
+//         }
+//     }
+//     coarse
+// }
 
-fn restrict_bc_x(nyf: usize, nzf: usize, nyc: usize, nzc: usize, gxcf: &[f64]) -> Vec<f64> {
-    let mut out = vec![0.0f64; 2 * nyc * nzc];
-    for face in 0..2 {
-        for kc in 0..nzc {
-            for jc in 0..nyc {
-                let fj = (2 * jc).min(nyf - 1);
-                let fk = (2 * kc).min(nzf - 1);
-                out[face * nyc * nzc + kc * nyc + jc] = gxcf[face * nyf * nzf + fk * nyf + fj];
-            }
-        }
-    }
-    out
-}
+// fn restrict_bc_x(nyf: usize, nzf: usize, nyc: usize, nzc: usize, gxcf: &[f64]) -> Vec<f64> {
+//     let mut out = vec![0.0f64; 2 * nyc * nzc];
+//     for face in 0..2 {
+//         for kc in 0..nzc {
+//             for jc in 0..nyc {
+//                 let fj = (2 * jc).min(nyf - 1);
+//                 let fk = (2 * kc).min(nzf - 1);
+//                 out[face * nyc * nzc + kc * nyc + jc] = gxcf[face * nyf * nzf + fk * nyf + fj];
+//             }
+//         }
+//     }
+//     out
+// }
 
-fn restrict_bc_y(nxf: usize, nzf: usize, nxc: usize, nzc: usize, gycf: &[f64]) -> Vec<f64> {
-    let mut out = vec![0.0f64; 2 * nxc * nzc];
-    for face in 0..2 {
-        for kc in 0..nzc {
-            for ic in 0..nxc {
-                let fi = (2 * ic).min(nxf - 1);
-                let fk = (2 * kc).min(nzf - 1);
-                out[face * nxc * nzc + kc * nxc + ic] = gycf[face * nxf * nzf + fk * nxf + fi];
-            }
-        }
-    }
-    out
-}
+// fn restrict_bc_y(nxf: usize, nzf: usize, nxc: usize, nzc: usize, gycf: &[f64]) -> Vec<f64> {
+//     let mut out = vec![0.0f64; 2 * nxc * nzc];
+//     for face in 0..2 {
+//         for kc in 0..nzc {
+//             for ic in 0..nxc {
+//                 let fi = (2 * ic).min(nxf - 1);
+//                 let fk = (2 * kc).min(nzf - 1);
+//                 out[face * nxc * nzc + kc * nxc + ic] = gycf[face * nxf * nzf + fk * nxf + fi];
+//             }
+//         }
+//     }
+//     out
+// }
 
-fn restrict_bc_z(nxf: usize, nyf: usize, nxc: usize, nyc: usize, gzcf: &[f64]) -> Vec<f64> {
-    let mut out = vec![0.0f64; 2 * nxc * nyc];
-    for face in 0..2 {
-        for jc in 0..nyc {
-            for ic in 0..nxc {
-                let fi = (2 * ic).min(nxf - 1);
-                let fj = (2 * jc).min(nyf - 1);
-                out[face * nxc * nyc + jc * nxc + ic] = gzcf[face * nxf * nyf + fj * nxf + fi];
-            }
-        }
-    }
-    out
-}
+// fn restrict_bc_z(nxf: usize, nyf: usize, nxc: usize, nyc: usize, gzcf: &[f64]) -> Vec<f64> {
+//     let mut out = vec![0.0f64; 2 * nxc * nyc];
+//     for face in 0..2 {
+//         for jc in 0..nyc {
+//             for ic in 0..nxc {
+//                 let fi = (2 * ic).min(nxf - 1);
+//                 let fj = (2 * jc).min(nyf - 1);
+//                 out[face * nxc * nyc + jc * nxc + ic] = gzcf[face * nxf * nyf + fj * nxf + fi];
+//             }
+//         }
+//     }
+//     out
+// }
 
 /// Build all multigrid operators for all levels
 /// Uses index-based access to avoid borrow conflicts

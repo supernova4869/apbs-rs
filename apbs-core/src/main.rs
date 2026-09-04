@@ -145,8 +145,8 @@ const CONFIG_TEMPLATE: &str = include_str!("../../apbs-rust.conf");
 
 const CONFIG_ENTRIES: &[ConfigEntry] = &[
     ConfigEntry { key: "APBS_RUST_DEBUG", default: Some("0"), presence_bool: true },
-    ConfigEntry { key: "APBS_RUST_RAYON_THREADS", default: Some("2"), presence_bool: false },
-    ConfigEntry { key: "RAYON_NUM_THREADS", default: Some("2"), presence_bool: false },
+    ConfigEntry { key: "APBS_RUST_RAYON_THREADS", default: Some("0"), presence_bool: false },
+    ConfigEntry { key: "RAYON_NUM_THREADS", default: Some("0"), presence_bool: false },
     ConfigEntry { key: "APBS_RUST_PARALLEL_BLOCKS", default: Some("0"), presence_bool: false },
     ConfigEntry { key: "APBS_RUST_BLOCK_THREADS", default: Some("2"), presence_bool: false },
     ConfigEntry { key: "APBS_RUST_NEWTON_ITMAX", default: Some("20"), presence_bool: false },
@@ -214,7 +214,11 @@ impl RuntimeConfig {
 }
 
 fn configure_parallelism(config: &mut RuntimeConfig) {
-    if env::var_os("RAYON_NUM_THREADS").is_some() {
+    let explicit_rayon = env::var("RAYON_NUM_THREADS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|&value| value > 0);
+    if explicit_rayon.is_some() {
         config.refresh("RAYON_NUM_THREADS");
         return;
     }
@@ -223,7 +227,20 @@ fn configure_parallelism(config: &mut RuntimeConfig) {
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
         .filter(|&value| value > 0)
-        .unwrap_or(2);
+        // When a configuration file does not pin a thread count, follow the
+        // OpenMP setting that the reference APBS binary honors so the two
+        // solvers are benchmarked with the same concurrency.
+        .or_else(|| {
+            env::var("OMP_NUM_THREADS")
+                .ok()
+                .and_then(|value| value.parse::<usize>().ok())
+                .filter(|&value| value > 0)
+        })
+        .unwrap_or_else(|| {
+            std::thread::available_parallelism()
+                .map(usize::from)
+                .unwrap_or(1)
+        });
 
     env::set_var("RAYON_NUM_THREADS", threads.to_string());
     config.refresh("RAYON_NUM_THREADS");

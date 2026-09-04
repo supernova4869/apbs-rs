@@ -270,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_param_flat_file() {
-        let mut tmpfile = std::env::temp_dir().join("test_apbs.param");
+        let tmpfile = std::env::temp_dir().join("test_apbs.param");
         let mut f = File::create(&tmpfile).unwrap();
         writeln!(f, "ALA CA -0.1800 1.9000 0.1100").unwrap();
         writeln!(f, "ALA CB  0.0300 1.9000 0.1100").unwrap();

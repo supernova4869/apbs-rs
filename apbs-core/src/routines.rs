@@ -8,8 +8,8 @@ use apbs_generic::vpbe::Vpbe;
 
 use std::collections::HashMap;
 use std::cell::RefCell;
-use std::fs;
-use std::path::{Path, PathBuf};
+// use std::fs;
+// use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::OnceLock;
 
@@ -38,17 +38,17 @@ macro_rules! println {
     }};
 }
 
-/// Atomic force components.
-/// Port of AtomForce from routines.h line 96.
-#[derive(Debug, Clone, Default)]
-pub struct AtomForce {
-    pub ib_force: [f64; 3],   // Ion-boundary force
-    pub qf_force: [f64; 3],   // Charge-field force
-    pub db_force: [f64; 3],   // Dielectric boundary force
-    pub sasa_force: [f64; 3], // SASA force (coupled to gamma)
-    pub sav_force: [f64; 3],  // SAV force (coupled to press)
-    pub wca_force: [f64; 3],  // WCA integral force (coupled to bconc)
-}
+// /// Atomic force components.
+// /// Port of AtomForce from routines.h line 96.
+// #[derive(Debug, Clone, Default)]
+// pub struct AtomForce {
+//     pub ib_force: [f64; 3],   // Ion-boundary force
+//     pub qf_force: [f64; 3],   // Charge-field force
+//     pub db_force: [f64; 3],   // Dielectric boundary force
+//     pub sasa_force: [f64; 3], // SASA force (coupled to gamma)
+//     pub sav_force: [f64; 3],  // SAV force (coupled to press)
+//     pub wca_force: [f64; 3],  // WCA integral force (coupled to bconc)
+// }
 
 fn debug_enabled() -> bool {
     static DEBUG: OnceLock<bool> = OnceLock::new();
@@ -92,61 +92,61 @@ fn report_mg_energy_components(
     }
 }
 
-fn ensure_bem_tool_path() {
-    use std::path::PathBuf;
+// fn ensure_bem_tool_path() {
+//     use std::path::PathBuf;
 
-    let mut candidates = Vec::new();
-    if let Some(dir) = option_env!("APBS_BUNDLED_C_BACKEND_BINDIR") {
-        candidates.push(PathBuf::from(dir));
-    }
-    candidates.push(PathBuf::from("/tmp/apbs-cmake-build/_deps/tabi-build/bin"));
-    candidates.push(PathBuf::from("/tmp/apbs-cmake-build/temp"));
+//     let mut candidates = Vec::new();
+//     if let Some(dir) = option_env!("APBS_BUNDLED_C_BACKEND_BINDIR") {
+//         candidates.push(PathBuf::from(dir));
+//     }
+//     candidates.push(PathBuf::from("/tmp/apbs-cmake-build/_deps/tabi-build/bin"));
+//     candidates.push(PathBuf::from("/tmp/apbs-cmake-build/temp"));
 
-    let Some(tool_dir) = candidates
-        .into_iter()
-        .find(|dir| dir.join("NanoShaper").is_file()) else {
-        return;
-    };
+//     let Some(tool_dir) = candidates
+//         .into_iter()
+//         .find(|dir| dir.join("NanoShaper").is_file()) else {
+//         return;
+//     };
 
-    let current = std::env::var_os("PATH").unwrap_or_default();
-    let mut parts = std::env::split_paths(&current).collect::<Vec<_>>();
-    if parts.iter().any(|p| p == &tool_dir) {
-        return;
-    }
-    parts.insert(0, tool_dir);
-    if let Ok(joined) = std::env::join_paths(parts) {
-        std::env::set_var("PATH", joined);
-    }
-}
+//     let current = std::env::var_os("PATH").unwrap_or_default();
+//     let mut parts = std::env::split_paths(&current).collect::<Vec<_>>();
+//     if parts.iter().any(|p| p == &tool_dir) {
+//         return;
+//     }
+//     parts.insert(0, tool_dir);
+//     if let Ok(joined) = std::env::join_paths(parts) {
+//         std::env::set_var("PATH", joined);
+//     }
+// }
 
-fn write_valist_as_pqr(alist: &Valist, path: &Path) -> ApbsResult<()> {
-    let mut out = String::new();
-    for (idx, atom) in alist.atoms().iter().enumerate() {
-        let atom_name = if atom.atom_name.is_empty() { "X" } else { &atom.atom_name };
-        let res_name = if atom.res_name.is_empty() { "MOL" } else { &atom.res_name };
-        out.push_str(&format!(
-            "ATOM {:>6} {:<4} {:<4} {:>4} {:>12.6} {:>12.6} {:>12.6} {:>12.6} {:>12.6}\n",
-            idx + 1,
-            atom_name,
-            res_name,
-            1,
-            atom.position[0],
-            atom.position[1],
-            atom.position[2],
-            atom.charge,
-            atom.radius,
-        ));
-    }
-    fs::write(path, out).map_err(|e| ApbsError::Io(format!("Failed to write temporary PQR '{}': {}", path.display(), e)))
-}
+// fn write_valist_as_pqr(alist: &Valist, path: &Path) -> ApbsResult<()> {
+//     let mut out = String::new();
+//     for (idx, atom) in alist.atoms().iter().enumerate() {
+//         let atom_name = if atom.atom_name.is_empty() { "X" } else { &atom.atom_name };
+//         let res_name = if atom.res_name.is_empty() { "MOL" } else { &atom.res_name };
+//         out.push_str(&format!(
+//             "ATOM {:>6} {:<4} {:<4} {:>4} {:>12.6} {:>12.6} {:>12.6} {:>12.6} {:>12.6}\n",
+//             idx + 1,
+//             atom_name,
+//             res_name,
+//             1,
+//             atom.position[0],
+//             atom.position[1],
+//             atom.position[2],
+//             atom.charge,
+//             atom.radius,
+//         ));
+//     }
+//     fs::write(path, out).map_err(|e| ApbsError::Io(format!("Failed to write temporary PQR '{}': {}", path.display(), e)))
+// }
 
-fn make_force_temp_pqr(base_name: &str, atom_index: usize, axis: usize, sign: &str) -> PathBuf {
-    let pid = std::process::id();
-    std::env::temp_dir().join(format!(
-        "apbs-rust-fem-force-{}-{}-a{}-d{}-{}.pqr",
-        pid, base_name, atom_index, axis, sign
-    ))
-}
+// fn make_force_temp_pqr(base_name: &str, atom_index: usize, axis: usize, sign: &str) -> PathBuf {
+//     let pid = std::process::id();
+//     std::env::temp_dir().join(format!(
+//         "apbs-rust-fem-force-{}-{}-a{}-d{}-{}.pqr",
+//         pid, base_name, atom_index, axis, sign
+//     ))
+// }
 
 enum ElecResult {
     Mg {
@@ -1235,7 +1235,7 @@ fn run_apolar(
     let clist = Arc::new(apbs_generic::vclist::Vclist::new_auto(
         &alist, srad_pad, nhash,
     )?);
-    let acc = apbs_generic::vacc::Vacc::new(&alist, &clist, apolparm.sdens);
+    // let acc = apbs_generic::vacc::Vacc::new(&alist, &clist, apolparm.sdens);
 
     // Calculate energies if requested
     if apolparm.calc_energy != apbs_generic::apolparm::APOLparmCalcEnergy::No {
@@ -1510,439 +1510,439 @@ fn write_output(
     Ok(())
 }
 
-/// Compute forces on all atoms for an ELEC calculation.
-/// Port of forceMG from routines.c line 1803.
-///
-/// For PCF_TOTAL: returns a single AtomForce with summed forces over all atoms.
-/// For PCF_COMPS: returns one AtomForce per atom.
-/// For PCF_NONE: returns empty vec.
-pub fn force_mg(
-    pmg: &apbs_mg::vpmg::Vpmg,
-    pbeparm: &apbs_generic::pbeparm::PBEparm,
-    mgparm: &apbs_generic::mgparm::MGparm,
-) -> Vec<AtomForce> {
-    use apbs_generic::pbeparm::PBEparmCalcForce;
+// /// Compute forces on all atoms for an ELEC calculation.
+// /// Port of forceMG from routines.c line 1803.
+// ///
+// /// For PCF_TOTAL: returns a single AtomForce with summed forces over all atoms.
+// /// For PCF_COMPS: returns one AtomForce per atom.
+// /// For PCF_NONE: returns empty vec.
+// pub fn force_mg(
+//     pmg: &apbs_mg::vpmg::Vpmg,
+//     pbeparm: &apbs_generic::pbeparm::PBEparm,
+//     mgparm: &apbs_generic::mgparm::MGparm,
+// ) -> Vec<AtomForce> {
+//     use apbs_generic::pbeparm::PBEparmCalcForce;
 
-    match pbeparm.calc_force {
-        PBEparmCalcForce::Total => {
-            let n = pmg.pbe.alist.number_atoms();
-            let mut result = AtomForce::default();
-            for j in 0..n {
-                let qf = pmg.qf_force_full(j, mgparm.chgm);
-                let ib = pmg.ib_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
-                let db = pmg.db_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
-                for k in 0..3 {
-                    result.qf_force[k] += qf[k];
-                    result.ib_force[k] += ib[k];
-                    result.db_force[k] += db[k];
-                }
-            }
-            let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
-            eprintln!("  Calculating forces...");
-            eprintln!("  Printing net forces for molecule {} (kJ/mol/A)", pbeparm.molid.unwrap_or(0));
-            eprintln!("  Legend:");
-            eprintln!("    qf  -- fixed charge force");
-            eprintln!("    db  -- dielectric boundary force");
-            eprintln!("    ib  -- ionic boundary force");
-            eprintln!("  qf  {:4.3e}  {:4.3e}  {:4.3e}",
-                conversion * result.qf_force[0],
-                conversion * result.qf_force[1],
-                conversion * result.qf_force[2]);
-            eprintln!("  ib  {:4.3e}  {:4.3e}  {:4.3e}",
-                conversion * result.ib_force[0],
-                conversion * result.ib_force[1],
-                conversion * result.ib_force[2]);
-            eprintln!("  db  {:4.3e}  {:4.3e}  {:4.3e}",
-                conversion * result.db_force[0],
-                conversion * result.db_force[1],
-                conversion * result.db_force[2]);
-            vec![result]
-        }
-        PBEparmCalcForce::Comps => {
-            let n = pmg.pbe.alist.number_atoms();
-            let mut result = Vec::with_capacity(n);
-            eprintln!("  Calculating forces...");
-            eprintln!("  Printing per-atom forces for molecule {} (kJ/mol/A)", pbeparm.molid.unwrap_or(0));
-            eprintln!("  Legend:");
-            eprintln!("    tot n -- total force for atom n");
-            eprintln!("    qf  n -- fixed charge force for atom n");
-            eprintln!("    db  n -- dielectric boundary force for atom n");
-            eprintln!("    ib  n -- ionic boundary force for atom n");
-            let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
-            for j in 0..n {
-                let qf = pmg.qf_force_full(j, mgparm.chgm);
-                let ib = pmg.ib_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
-                let db = pmg.db_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
-                let total = [
-                    qf[0] + ib[0] + db[0],
-                    qf[1] + ib[1] + db[1],
-                    qf[2] + ib[2] + db[2],
-                ];
-                eprintln!("mgF  tot {}  {:4.3e}  {:4.3e}  {:4.3e}",
-                    j, conversion * total[0], conversion * total[1], conversion * total[2]);
-                eprintln!("mgF  qf  {}  {:4.3e}  {:4.3e}  {:4.3e}",
-                    j, conversion * qf[0], conversion * qf[1], conversion * qf[2]);
-                eprintln!("mgF  ib  {}  {:4.3e}  {:4.3e}  {:4.3e}",
-                    j, conversion * ib[0], conversion * ib[1], conversion * ib[2]);
-                eprintln!("mgF  db  {}  {:4.3e}  {:4.3e}  {:4.3e}",
-                    j, conversion * db[0], conversion * db[1], conversion * db[2]);
-                result.push(AtomForce {
-                    qf_force: qf,
-                    ib_force: ib,
-                    db_force: db,
-                    ..Default::default()
-                });
-            }
-            result
-        }
-        _ => Vec::new(),
-    }
-}
+//     match pbeparm.calc_force {
+//         PBEparmCalcForce::Total => {
+//             let n = pmg.pbe.alist.number_atoms();
+//             let mut result = AtomForce::default();
+//             for j in 0..n {
+//                 let qf = pmg.qf_force_full(j, mgparm.chgm);
+//                 let ib = pmg.ib_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
+//                 let db = pmg.db_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
+//                 for k in 0..3 {
+//                     result.qf_force[k] += qf[k];
+//                     result.ib_force[k] += ib[k];
+//                     result.db_force[k] += db[k];
+//                 }
+//             }
+//             let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
+//             eprintln!("  Calculating forces...");
+//             eprintln!("  Printing net forces for molecule {} (kJ/mol/A)", pbeparm.molid.unwrap_or(0));
+//             eprintln!("  Legend:");
+//             eprintln!("    qf  -- fixed charge force");
+//             eprintln!("    db  -- dielectric boundary force");
+//             eprintln!("    ib  -- ionic boundary force");
+//             eprintln!("  qf  {:4.3e}  {:4.3e}  {:4.3e}",
+//                 conversion * result.qf_force[0],
+//                 conversion * result.qf_force[1],
+//                 conversion * result.qf_force[2]);
+//             eprintln!("  ib  {:4.3e}  {:4.3e}  {:4.3e}",
+//                 conversion * result.ib_force[0],
+//                 conversion * result.ib_force[1],
+//                 conversion * result.ib_force[2]);
+//             eprintln!("  db  {:4.3e}  {:4.3e}  {:4.3e}",
+//                 conversion * result.db_force[0],
+//                 conversion * result.db_force[1],
+//                 conversion * result.db_force[2]);
+//             vec![result]
+//         }
+//         PBEparmCalcForce::Comps => {
+//             let n = pmg.pbe.alist.number_atoms();
+//             let mut result = Vec::with_capacity(n);
+//             eprintln!("  Calculating forces...");
+//             eprintln!("  Printing per-atom forces for molecule {} (kJ/mol/A)", pbeparm.molid.unwrap_or(0));
+//             eprintln!("  Legend:");
+//             eprintln!("    tot n -- total force for atom n");
+//             eprintln!("    qf  n -- fixed charge force for atom n");
+//             eprintln!("    db  n -- dielectric boundary force for atom n");
+//             eprintln!("    ib  n -- ionic boundary force for atom n");
+//             let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
+//             for j in 0..n {
+//                 let qf = pmg.qf_force_full(j, mgparm.chgm);
+//                 let ib = pmg.ib_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
+//                 let db = pmg.db_force(j, pbeparm.srfm).unwrap_or([0.0; 3]);
+//                 let total = [
+//                     qf[0] + ib[0] + db[0],
+//                     qf[1] + ib[1] + db[1],
+//                     qf[2] + ib[2] + db[2],
+//                 ];
+//                 eprintln!("mgF  tot {}  {:4.3e}  {:4.3e}  {:4.3e}",
+//                     j, conversion * total[0], conversion * total[1], conversion * total[2]);
+//                 eprintln!("mgF  qf  {}  {:4.3e}  {:4.3e}  {:4.3e}",
+//                     j, conversion * qf[0], conversion * qf[1], conversion * qf[2]);
+//                 eprintln!("mgF  ib  {}  {:4.3e}  {:4.3e}  {:4.3e}",
+//                     j, conversion * ib[0], conversion * ib[1], conversion * ib[2]);
+//                 eprintln!("mgF  db  {}  {:4.3e}  {:4.3e}  {:4.3e}",
+//                     j, conversion * db[0], conversion * db[1], conversion * db[2]);
+//                 result.push(AtomForce {
+//                     qf_force: qf,
+//                     ib_force: ib,
+//                     db_force: db,
+//                     ..Default::default()
+//                 });
+//             }
+//             result
+//         }
+//         _ => Vec::new(),
+//     }
+// }
 
-/// Store per-atom energy decomposition.
-/// Port of storeAtomEnergy from routines.c line 2056.
-pub fn store_atom_energy(pmg: &apbs_mg::vpmg::Vpmg) -> Vec<f64> {
-    let n = pmg.pbe.alist.number_atoms();
-    let mut energies = Vec::with_capacity(n);
-    for i in 0..n {
-        energies.push(pmg.qf_atom_energy(i));
-    }
-    energies
-}
+// /// Store per-atom energy decomposition.
+// /// Port of storeAtomEnergy from routines.c line 2056.
+// pub fn store_atom_energy(pmg: &apbs_mg::vpmg::Vpmg) -> Vec<f64> {
+//     let n = pmg.pbe.alist.number_atoms();
+//     let mut energies = Vec::with_capacity(n);
+//     for i in 0..n {
+//         energies.push(pmg.qf_atom_energy(i));
+//     }
+//     energies
+// }
 
-/// Write calculation results to flat-text file.
-/// Port of writedataFlat from routines.c line 2075.
-pub fn writedata_flat(
-    fname: &str,
-    nosh: &NOsh,
-    energies: &HashMap<String, f64>,
-) -> ApbsResult<()> {
-    use std::fs::File;
-    use std::io::Write;
+// /// Write calculation results to flat-text file.
+// /// Port of writedataFlat from routines.c line 2075.
+// pub fn writedata_flat(
+//     fname: &str,
+//     nosh: &NOsh,
+//     energies: &HashMap<String, f64>,
+// ) -> ApbsResult<()> {
+//     use std::fs::File;
+//     use std::io::Write;
 
-    let mut file = File::create(fname)
-        .map_err(|e| ApbsError::Io(format!("Failed to open {}: {}", fname, e)))?;
+//     let mut file = File::create(fname)
+//         .map_err(|e| ApbsError::Io(format!("Failed to open {}: {}", fname, e)))?;
 
-    // Write timestamp
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    writeln!(file, "Timestamp: {} seconds since epoch", now.as_secs())
-        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//     // Write timestamp
+//     let now = std::time::SystemTime::now()
+//         .duration_since(std::time::UNIX_EPOCH)
+//         .unwrap_or_default();
+//     writeln!(file, "Timestamp: {} seconds since epoch", now.as_secs())
+//         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-    // Write each ELEC calculation
-    for calc in &nosh.calcs {
-        if let NOshCalc::Elec(elec) = calc {
-            let pbeparm = &elec.pbeparm;
-            let mgparm = &elec.mgparm;
-            let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
+//     // Write each ELEC calculation
+//     for calc in &nosh.calcs {
+//         if let NOshCalc::Elec(elec) = calc {
+//             let pbeparm = &elec.pbeparm;
+//             let mgparm = &elec.mgparm;
+//             let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
 
-            writeln!(file, "elec name {}", elec.name)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "elec name {}", elec.name)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::mgparm::MGparmCalcType;
-            match mgparm.r#type {
-                MGparmCalcType::Dummy => writeln!(file, "    mg-dummy"),
-                MGparmCalcType::Manual => writeln!(file, "    mg-manual"),
-                MGparmCalcType::Auto => writeln!(file, "    mg-auto"),
-                MGparmCalcType::Parallel => writeln!(file, "    mg-para"),
-                _ => writeln!(file, "    mg-unknown"),
-            }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::mgparm::MGparmCalcType;
+//             match mgparm.r#type {
+//                 MGparmCalcType::Dummy => writeln!(file, "    mg-dummy"),
+//                 MGparmCalcType::Manual => writeln!(file, "    mg-manual"),
+//                 MGparmCalcType::Auto => writeln!(file, "    mg-auto"),
+//                 MGparmCalcType::Parallel => writeln!(file, "    mg-para"),
+//                 _ => writeln!(file, "    mg-unknown"),
+//             }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            writeln!(file, "    mol {}", pbeparm.molid.unwrap_or(0))
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    dime {} {} {}", mgparm.dime[0], mgparm.dime[1], mgparm.dime[2])
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    mol {}", pbeparm.molid.unwrap_or(0))
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    dime {} {} {}", mgparm.dime[0], mgparm.dime[1], mgparm.dime[2])
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::VhalPBEType;
-            match pbeparm.pbetype {
-                VhalPBEType::NPBE => writeln!(file, "    npbe"),
-                VhalPBEType::LPBE => writeln!(file, "    lpbe"),
-                _ => writeln!(file, "    unknown-pbe"),
-            }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::VhalPBEType;
+//             match pbeparm.pbetype {
+//                 VhalPBEType::NPBE => writeln!(file, "    npbe"),
+//                 VhalPBEType::LPBE => writeln!(file, "    lpbe"),
+//                 _ => writeln!(file, "    unknown-pbe"),
+//             }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            if pbeparm.nion > 0 {
-                for i in 0..pbeparm.nion as usize {
-                    writeln!(file, "    ion {:4.3} {:4.3} {:4.3}",
-                        pbeparm.ionr[i], pbeparm.ionq[i], pbeparm.ionc[i])
-                        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                }
-            }
+//             if pbeparm.nion > 0 {
+//                 for i in 0..pbeparm.nion as usize {
+//                     writeln!(file, "    ion {:4.3} {:4.3} {:4.3}",
+//                         pbeparm.ionr[i], pbeparm.ionq[i], pbeparm.ionc[i])
+//                         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                 }
+//             }
 
-            writeln!(file, "    pdie {:4.3}", pbeparm.pdie)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    sdie {:4.3}", pbeparm.sdie)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    pdie {:4.3}", pbeparm.pdie)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    sdie {:4.3}", pbeparm.sdie)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::VsurfMeth;
-            match pbeparm.srfm {
-                VsurfMeth::Mol => { writeln!(file, "    srfm mol").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
-                VsurfMeth::MolSmooth => { writeln!(file, "    srfm smol").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
-                VsurfMeth::Spline => { writeln!(file, "    srfm spl2").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
-                _ => {}
-            }
-            writeln!(file, "    srad {:4.3}", pbeparm.srad)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::VsurfMeth;
+//             match pbeparm.srfm {
+//                 VsurfMeth::Mol => { writeln!(file, "    srfm mol").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
+//                 VsurfMeth::MolSmooth => { writeln!(file, "    srfm smol").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
+//                 VsurfMeth::Spline => { writeln!(file, "    srfm spl2").map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?; }
+//                 _ => {}
+//             }
+//             writeln!(file, "    srad {:4.3}", pbeparm.srad)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::Vbcfl;
-            match pbeparm.bcfl {
-                Vbcfl::Zero => writeln!(file, "    bcfl zero"),
-                Vbcfl::SDH => writeln!(file, "    bcfl sdh"),
-                Vbcfl::MDH => writeln!(file, "    bcfl mdh"),
-                Vbcfl::Focus => writeln!(file, "    bcfl focus"),
-                Vbcfl::Map => writeln!(file, "    bcfl map"),
-                Vbcfl::Mem => writeln!(file, "    bcfl mem"),
-                _ => writeln!(file, "    bcfl unknown"),
-            }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::Vbcfl;
+//             match pbeparm.bcfl {
+//                 Vbcfl::Zero => writeln!(file, "    bcfl zero"),
+//                 Vbcfl::SDH => writeln!(file, "    bcfl sdh"),
+//                 Vbcfl::MDH => writeln!(file, "    bcfl mdh"),
+//                 Vbcfl::Focus => writeln!(file, "    bcfl focus"),
+//                 Vbcfl::Map => writeln!(file, "    bcfl map"),
+//                 Vbcfl::Mem => writeln!(file, "    bcfl mem"),
+//                 _ => writeln!(file, "    bcfl unknown"),
+//             }.map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            writeln!(file, "    temp {:4.3}", pbeparm.temp)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    temp {:4.3}", pbeparm.temp)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            if let Some(&energy) = energies.get(&elec.name) {
-                use apbs_generic::pbeparm::PBEparmCalcEnergy;
-                match pbeparm.calc_energy {
-                    PBEparmCalcEnergy::Total => {
-                        writeln!(file, "        totEnergy {:1.12E} kJ/mol", energy * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                    PBEparmCalcEnergy::Comps => {
-                        writeln!(file, "        totEnergy {:1.12E} kJ/mol", energy * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                    _ => {}
-                }
-            }
+//             if let Some(&energy) = energies.get(&elec.name) {
+//                 use apbs_generic::pbeparm::PBEparmCalcEnergy;
+//                 match pbeparm.calc_energy {
+//                     PBEparmCalcEnergy::Total => {
+//                         writeln!(file, "        totEnergy {:1.12E} kJ/mol", energy * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                     PBEparmCalcEnergy::Comps => {
+//                         writeln!(file, "        totEnergy {:1.12E} kJ/mol", energy * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                     _ => {}
+//                 }
+//             }
 
-            writeln!(file, "    end")
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "end")
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-        }
-    }
+//             writeln!(file, "    end")
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "end")
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//         }
+//     }
 
-    // Handle PRINT statements
-    for calc in &nosh.calcs {
-        if let NOshCalc::Print(print_stmt) = calc {
-            match print_stmt {
-                NOshPrint::ElecEnergy { left, right } => {
-                    if right.is_empty() {
-                        if let Some(&energy) = energies.get(left) {
-                            let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
-                            let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
-                            writeln!(file, "print energy {} ({}) end", left, left)
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                            writeln!(file, "    globalEnergy {:1.12E} kJ/mol", energy * conversion)
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        }
-                    } else {
-                        let e_left = energies.get(left).copied().unwrap_or(0.0);
-                        let e_right = energies.get(right).copied().unwrap_or(0.0);
-                        let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
-                        let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
-                        writeln!(file, "print energy {} ({}) - {} ({}) end", left, left, right, right)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    globalEnergy {:1.12E} kJ/mol", (e_left - e_right) * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                }
-                NOshPrint::ApolEnergy { name } => {
-                    if let Some(&energy) = energies.get(name) {
-                        writeln!(file, "print APOL energy {} ({}) end", name, name)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    globalEnergy {:1.12E} kJ/mol", energy)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+//     // Handle PRINT statements
+//     for calc in &nosh.calcs {
+//         if let NOshCalc::Print(print_stmt) = calc {
+//             match print_stmt {
+//                 NOshPrint::ElecEnergy { left, right } => {
+//                     if right.is_empty() {
+//                         if let Some(&energy) = energies.get(left) {
+//                             let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
+//                             let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
+//                             writeln!(file, "print energy {} ({}) end", left, left)
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                             writeln!(file, "    globalEnergy {:1.12E} kJ/mol", energy * conversion)
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         }
+//                     } else {
+//                         let e_left = energies.get(left).copied().unwrap_or(0.0);
+//                         let e_right = energies.get(right).copied().unwrap_or(0.0);
+//                         let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
+//                         let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
+//                         writeln!(file, "print energy {} ({}) - {} ({}) end", left, left, right, right)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    globalEnergy {:1.12E} kJ/mol", (e_left - e_right) * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                 }
+//                 NOshPrint::ApolEnergy { name } => {
+//                     if let Some(&energy) = energies.get(name) {
+//                         writeln!(file, "print APOL energy {} ({}) end", name, name)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    globalEnergy {:1.12E} kJ/mol", energy)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
-/// Write calculation results to XML file.
-/// Port of writedataXML from routines.c line 2336.
-pub fn writedata_xml(
-    fname: &str,
-    nosh: &NOsh,
-    energies: &HashMap<String, f64>,
-) -> ApbsResult<()> {
-    use std::fs::File;
-    use std::io::Write;
+// /// Write calculation results to XML file.
+// /// Port of writedataXML from routines.c line 2336.
+// pub fn writedata_xml(
+//     fname: &str,
+//     nosh: &NOsh,
+//     energies: &HashMap<String, f64>,
+// ) -> ApbsResult<()> {
+//     use std::fs::File;
+//     use std::io::Write;
 
-    let mut file = File::create(fname)
-        .map_err(|e| ApbsError::Io(format!("Failed to open {}: {}", fname, e)))?;
+//     let mut file = File::create(fname)
+//         .map_err(|e| ApbsError::Io(format!("Failed to open {}: {}", fname, e)))?;
 
-    writeln!(file, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
-        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-    writeln!(file, "<APBS>")
-        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//     writeln!(file, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+//         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//     writeln!(file, "<APBS>")
+//         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    writeln!(file, "  <date>Timestamp: {} seconds since epoch</date>", now.as_secs())
-        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//     let now = std::time::SystemTime::now()
+//         .duration_since(std::time::UNIX_EPOCH)
+//         .unwrap_or_default();
+//     writeln!(file, "  <date>Timestamp: {} seconds since epoch</date>", now.as_secs())
+//         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-    for calc in &nosh.calcs {
-        if let NOshCalc::Elec(elec) = calc {
-            let pbeparm = &elec.pbeparm;
-            let mgparm = &elec.mgparm;
-            let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
+//     for calc in &nosh.calcs {
+//         if let NOshCalc::Elec(elec) = calc {
+//             let pbeparm = &elec.pbeparm;
+//             let mgparm = &elec.mgparm;
+//             let conversion = apbs_generic::vunit::KB * pbeparm.temp * 1e-3 * apbs_generic::vunit::NA;
 
-            writeln!(file, "  <elec>")
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <name>{}</name>", elec.name)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "  <elec>")
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <name>{}</name>", elec.name)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::mgparm::MGparmCalcType;
-            let mgtype = match mgparm.r#type {
-                MGparmCalcType::Dummy => "mg-dummy",
-                MGparmCalcType::Manual => "mg-manual",
-                MGparmCalcType::Auto => "mg-auto",
-                MGparmCalcType::Parallel => "mg-para",
-                _ => "unknown",
-            };
-            writeln!(file, "    <type>{}</type>", mgtype)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <molid>{}</molid>", pbeparm.molid.unwrap_or(0))
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <nx>{}</nx>", mgparm.dime[0])
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <ny>{}</ny>", mgparm.dime[1])
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <nz>{}</nz>", mgparm.dime[2])
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::mgparm::MGparmCalcType;
+//             let mgtype = match mgparm.r#type {
+//                 MGparmCalcType::Dummy => "mg-dummy",
+//                 MGparmCalcType::Manual => "mg-manual",
+//                 MGparmCalcType::Auto => "mg-auto",
+//                 MGparmCalcType::Parallel => "mg-para",
+//                 _ => "unknown",
+//             };
+//             writeln!(file, "    <type>{}</type>", mgtype)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <molid>{}</molid>", pbeparm.molid.unwrap_or(0))
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <nx>{}</nx>", mgparm.dime[0])
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <ny>{}</ny>", mgparm.dime[1])
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <nz>{}</nz>", mgparm.dime[2])
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::VhalPBEType;
-            let pbetyp = match pbeparm.pbetype {
-                VhalPBEType::NPBE => "npbe",
-                VhalPBEType::LPBE => "lpbe",
-                _ => "unknown",
-            };
-            writeln!(file, "    <pbe>{}</pbe>", pbetyp)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::VhalPBEType;
+//             let pbetyp = match pbeparm.pbetype {
+//                 VhalPBEType::NPBE => "npbe",
+//                 VhalPBEType::LPBE => "lpbe",
+//                 _ => "unknown",
+//             };
+//             writeln!(file, "    <pbe>{}</pbe>", pbetyp)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            for i in 0..pbeparm.nion as usize {
-                writeln!(file, "    <ion>")
-                    .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                writeln!(file, "      <radius>{}</radius>", pbeparm.ionr[i])
-                    .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                writeln!(file, "      <charge>{}</charge>", pbeparm.ionq[i])
-                    .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                writeln!(file, "      <concentration>{}</concentration>", pbeparm.ionc[i])
-                    .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                writeln!(file, "    </ion>")
-                    .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            }
+//             for i in 0..pbeparm.nion as usize {
+//                 writeln!(file, "    <ion>")
+//                     .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                 writeln!(file, "      <radius>{}</radius>", pbeparm.ionr[i])
+//                     .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                 writeln!(file, "      <charge>{}</charge>", pbeparm.ionq[i])
+//                     .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                 writeln!(file, "      <concentration>{}</concentration>", pbeparm.ionc[i])
+//                     .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                 writeln!(file, "    </ion>")
+//                     .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             }
 
-            writeln!(file, "    <pdie>{}</pdie>", pbeparm.pdie)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <sdie>{}</sdie>", pbeparm.sdie)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <pdie>{}</pdie>", pbeparm.pdie)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <sdie>{}</sdie>", pbeparm.sdie)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::VsurfMeth;
-            let srfmtxt = match pbeparm.srfm {
-                VsurfMeth::Mol => "mol",
-                VsurfMeth::MolSmooth => "smol",
-                VsurfMeth::Spline => "spl2",
-                VsurfMeth::Spline3 => "spl3",
-                VsurfMeth::Spline4 => "spl4",
-                _ => "unknown",
-            };
-            writeln!(file, "    <srfm>{}</srfm>", srfmtxt)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <srad>{}</srad>", pbeparm.srad)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::VsurfMeth;
+//             let srfmtxt = match pbeparm.srfm {
+//                 VsurfMeth::Mol => "mol",
+//                 VsurfMeth::MolSmooth => "smol",
+//                 VsurfMeth::Spline => "spl2",
+//                 VsurfMeth::Spline3 => "spl3",
+//                 VsurfMeth::Spline4 => "spl4",
+//                 _ => "unknown",
+//             };
+//             writeln!(file, "    <srfm>{}</srfm>", srfmtxt)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <srad>{}</srad>", pbeparm.srad)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            use apbs_generic::vhal::Vbcfl;
-            let bcfltxt = match pbeparm.bcfl {
-                Vbcfl::Zero => "zero",
-                Vbcfl::SDH => "sdh",
-                Vbcfl::MDH => "mdh",
-                Vbcfl::Focus => "focus",
-                Vbcfl::Map => "map",
-                Vbcfl::Mem => "mem",
-                _ => "unknown",
-            };
-            writeln!(file, "    <bcfl>{}</bcfl>", bcfltxt)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-            writeln!(file, "    <temp>{}</temp>", pbeparm.temp)
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             use apbs_generic::vhal::Vbcfl;
+//             let bcfltxt = match pbeparm.bcfl {
+//                 Vbcfl::Zero => "zero",
+//                 Vbcfl::SDH => "sdh",
+//                 Vbcfl::MDH => "mdh",
+//                 Vbcfl::Focus => "focus",
+//                 Vbcfl::Map => "map",
+//                 Vbcfl::Mem => "mem",
+//                 _ => "unknown",
+//             };
+//             writeln!(file, "    <bcfl>{}</bcfl>", bcfltxt)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//             writeln!(file, "    <temp>{}</temp>", pbeparm.temp)
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-            if let Some(&energy) = energies.get(&elec.name) {
-                use apbs_generic::pbeparm::PBEparmCalcEnergy;
-                match pbeparm.calc_energy {
-                    PBEparmCalcEnergy::Total => {
-                        writeln!(file, "    <totEnergy>{:1.12E}</totEnergy>", energy * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                    PBEparmCalcEnergy::Comps => {
-                        writeln!(file, "    <totEnergy>{:1.12E}</totEnergy>", energy * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                    _ => {}
-                }
-            }
+//             if let Some(&energy) = energies.get(&elec.name) {
+//                 use apbs_generic::pbeparm::PBEparmCalcEnergy;
+//                 match pbeparm.calc_energy {
+//                     PBEparmCalcEnergy::Total => {
+//                         writeln!(file, "    <totEnergy>{:1.12E}</totEnergy>", energy * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                     PBEparmCalcEnergy::Comps => {
+//                         writeln!(file, "    <totEnergy>{:1.12E}</totEnergy>", energy * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                     _ => {}
+//                 }
+//             }
 
-            writeln!(file, "  </elec>")
-                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-        }
-    }
+//             writeln!(file, "  </elec>")
+//                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//         }
+//     }
 
-    // Handle PRINT statements
-    for calc in &nosh.calcs {
-        if let NOshCalc::Print(print_stmt) = calc {
-            match print_stmt {
-                NOshPrint::ElecEnergy { left, right } => {
-                    if right.is_empty() {
-                        if let Some(&energy) = energies.get(left) {
-                            let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
-                            let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
-                            writeln!(file, "  <printEnergy>")
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                            writeln!(file, "    <equation>{} ({}) end</equation>", left, left)
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                            writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", energy * conversion)
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                            writeln!(file, "  </printEnergy>")
-                                .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        }
-                    } else {
-                        let e_left = energies.get(left).copied().unwrap_or(0.0);
-                        let e_right = energies.get(right).copied().unwrap_or(0.0);
-                        let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
-                        let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
-                        writeln!(file, "  <printEnergy>")
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    <equation>{} ({}) - {} ({}) end</equation>", left, left, right, right)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", (e_left - e_right) * conversion)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "  </printEnergy>")
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                }
-                NOshPrint::ApolEnergy { name } => {
-                    if let Some(&energy) = energies.get(name) {
-                        writeln!(file, "  <printEnergy>")
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    <equation>APOL energy {} ({}) end</equation>", name, name)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", energy)
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                        writeln!(file, "  </printEnergy>")
-                            .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
-                    }
-                }
-                _ => {}
-            }
-        }
-    }
+//     // Handle PRINT statements
+//     for calc in &nosh.calcs {
+//         if let NOshCalc::Print(print_stmt) = calc {
+//             match print_stmt {
+//                 NOshPrint::ElecEnergy { left, right } => {
+//                     if right.is_empty() {
+//                         if let Some(&energy) = energies.get(left) {
+//                             let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
+//                             let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
+//                             writeln!(file, "  <printEnergy>")
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                             writeln!(file, "    <equation>{} ({}) end</equation>", left, left)
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                             writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", energy * conversion)
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                             writeln!(file, "  </printEnergy>")
+//                                 .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         }
+//                     } else {
+//                         let e_left = energies.get(left).copied().unwrap_or(0.0);
+//                         let e_right = energies.get(right).copied().unwrap_or(0.0);
+//                         let temp = nosh.get_elec_temp(left).unwrap_or(298.15);
+//                         let conversion = apbs_generic::vunit::KB * temp * 1e-3 * apbs_generic::vunit::NA;
+//                         writeln!(file, "  <printEnergy>")
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    <equation>{} ({}) - {} ({}) end</equation>", left, left, right, right)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", (e_left - e_right) * conversion)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "  </printEnergy>")
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                 }
+//                 NOshPrint::ApolEnergy { name } => {
+//                     if let Some(&energy) = energies.get(name) {
+//                         writeln!(file, "  <printEnergy>")
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    <equation>APOL energy {} ({}) end</equation>", name, name)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "    <globalEnergy>{:1.12E}</globalEnergy>", energy)
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                         writeln!(file, "  </printEnergy>")
+//                             .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//                     }
+//                 }
+//                 _ => {}
+//             }
+//         }
+//     }
 
-    writeln!(file, "</APBS>")
-        .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
+//     writeln!(file, "</APBS>")
+//         .map_err(|e| ApbsError::Io(format!("Write error: {}", e)))?;
 
-    Ok(())
-}
+//     Ok(())
+// }

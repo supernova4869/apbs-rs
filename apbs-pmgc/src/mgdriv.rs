@@ -278,14 +278,14 @@ pub fn mgdriv(
                 crate::newton::newton(
                     nx, ny, nz,
                     &ipc, &rpc,
-                    &ac[0..4 * nf], &cc_all[0..nf], &fc_all[0..nf],
+                    &ac, &cc_all, &fc_all,
                     u,
                     &mut w1, &mut w2, &mut r,
                     itmax as i32, errtol,
                     nlev as i32,
                     &pc, &iz,
                     nu1, nu2,
-                    omegan, irite,
+                    omegal, irite, mgsolv,
                 );
                 break;
             }

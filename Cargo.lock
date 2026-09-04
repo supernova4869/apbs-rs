@@ -24,6 +24,7 @@ name = "apbs-generic"
 version = "3.4.1"
 dependencies = [
  "quick-xml",
+ "rayon",
  "thiserror",
 ]
 
